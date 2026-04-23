@@ -17,6 +17,13 @@ import { Route as LoansRouteImport } from './routes/loans'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ApplyRouteImport } from './routes/apply'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OfficerIndexRouteImport } from './routes/officer.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as OfficerApplicationsRouteImport } from './routes/officer.applications'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminProductsRouteImport } from './routes/admin.products'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -58,6 +65,41 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OfficerIndexRoute = OfficerIndexRouteImport.update({
+  id: '/officer/',
+  path: '/officer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfficerApplicationsRoute = OfficerApplicationsRouteImport.update({
+  id: '/officer/applications',
+  path: '/officer/applications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/admin/reports',
+  path: '/admin/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/admin/products',
+  path: '/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +110,13 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/officer/applications': typeof OfficerApplicationsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/officer/': typeof OfficerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +127,13 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/officer/applications': typeof OfficerApplicationsRoute
+  '/admin': typeof AdminIndexRoute
+  '/officer': typeof OfficerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +145,13 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/admin/products': typeof AdminProductsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/officer/applications': typeof OfficerApplicationsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/officer/': typeof OfficerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +164,13 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/register'
+    | '/admin/products'
+    | '/admin/reports'
+    | '/admin/settings'
+    | '/admin/users'
+    | '/officer/applications'
+    | '/admin/'
+    | '/officer/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +181,13 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/register'
+    | '/admin/products'
+    | '/admin/reports'
+    | '/admin/settings'
+    | '/admin/users'
+    | '/officer/applications'
+    | '/admin'
+    | '/officer'
   id:
     | '__root__'
     | '/'
@@ -121,6 +198,13 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/register'
+    | '/admin/products'
+    | '/admin/reports'
+    | '/admin/settings'
+    | '/admin/users'
+    | '/officer/applications'
+    | '/admin/'
+    | '/officer/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +216,13 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  AdminProductsRoute: typeof AdminProductsRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  OfficerApplicationsRoute: typeof OfficerApplicationsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  OfficerIndexRoute: typeof OfficerIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +283,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/officer/': {
+      id: '/officer/'
+      path: '/officer'
+      fullPath: '/officer/'
+      preLoaderRoute: typeof OfficerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/officer/applications': {
+      id: '/officer/applications'
+      path: '/officer/applications'
+      fullPath: '/officer/applications'
+      preLoaderRoute: typeof OfficerApplicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/admin/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/admin/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,7 +344,23 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  AdminProductsRoute: AdminProductsRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  OfficerApplicationsRoute: OfficerApplicationsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  OfficerIndexRoute: OfficerIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
