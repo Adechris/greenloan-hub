@@ -14,13 +14,16 @@ dist-ssr
 # Frontend
 frontend/node_modules
 frontend/dist
+frontend/package-lock.json
 .output
 .vinxi
 .tanstack/**
 .nitro
 *.local
 
-# Wrangler / Cloudflare
+# Backend
+backend/node_modules
+backend/package-lock.json
 .wrangler/
 .dev.vars
 
