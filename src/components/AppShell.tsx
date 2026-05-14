@@ -84,8 +84,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           {(["borrower", "officer", "admin"] as Role[]).map((r) => (
             <button
               key={r}
-              onClick={() => {
-                switchRole(r);
+              onClick={async () => {
+                try { await switchRole(r); } catch { /* ignore — backend may be offline */ }
                 navigate({ to: r === "admin" ? "/admin" : r === "officer" ? "/officer" : "/dashboard" });
               }}
               className={cn(
