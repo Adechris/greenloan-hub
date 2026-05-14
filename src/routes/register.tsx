@@ -25,22 +25,28 @@ function RegisterPage() {
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.bvn.length !== 11) {
       toast.error("BVN must be 11 digits");
       return;
     }
-    register({
-      fullName: form.fullName,
-      email: form.email,
-      phone: form.phone,
-      role: "borrower",
-      state: form.state,
-      password: form.password,
-    });
-    toast.success("Account created! Welcome to NaijaLoan.");
-    navigate({ to: "/dashboard" });
+    try {
+      await register({
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        bvn: form.bvn,
+        nin: form.nin,
+        state: form.state,
+        employment: form.employment,
+        password: form.password,
+      });
+      toast.success("Account created! Welcome to NaijaLoan.");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Registration failed");
+    }
   };
 
   return (

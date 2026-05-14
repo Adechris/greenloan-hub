@@ -27,11 +27,15 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email, password, role);
-    toast.success(`Welcome back!`);
-    navigate({ to: role === "admin" ? "/admin" : role === "officer" ? "/officer" : "/dashboard" });
+    try {
+      await login(email, password, role);
+      toast.success(`Welcome back!`);
+      navigate({ to: role === "admin" ? "/admin" : role === "officer" ? "/officer" : "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Login failed");
+    }
   };
 
   return (
