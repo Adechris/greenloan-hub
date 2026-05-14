@@ -35,7 +35,14 @@ npm run dev                # http://localhost:4000
 - `GET  /api/loans/mine`              (borrower)
 - `GET  /api/officer/queue`           (officer/admin)
 - `POST /api/officer/loans/:id/decide` (officer/admin) `{ action: "approve"|"reject", reason? }`
-- `GET  /api/admin/stats`             (admin)
+- `GET  /api/loans/:id`               loan details + schedule + payments
+- `POST /api/loans/:id/payment`       record a payment
+- `POST /api/products`  `PATCH /api/products/:id`   (admin) manage products
+- `GET  /api/admin/stats`             (admin) portfolio stats + trend + mix
+- `GET  /api/admin/loans`             (admin) all loans
+- `GET  /api/admin/users`             (admin) all users across role tables
+- `PATCH /api/admin/users/:role/:id/toggle`  (admin) activate/deactivate
+- `GET  /api/notifications`  `PATCH /api/notifications/:id/read`
 
 ## Frontend
 

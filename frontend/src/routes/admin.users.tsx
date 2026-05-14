@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockUsers } from "@/lib/mockData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
+import type { AdminUser } from "@/lib/mockData";
 import { formatDate } from "@/lib/format";
 import { Search, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -17,12 +19,29 @@ export const Route = createFileRoute("/admin/users")({
   head: () => ({ meta: [{ title: "User Management — NaijaLoan" }] }),
 });
 
+const roleLabel = { admin: "Admin", officer: "Loan Officer", borrower: "Borrower" } as const;
+
 function UsersPage() {
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
-  const filtered = mockUsers
+
+  const refresh = () => api<{ users: AdminUser[] }>("/admin/users").then((r) => setUsers(r.users));
+  useEffect(() => { refresh(); }, []);
+
+  const toggle = async (u: AdminUser) => {
+    try {
+      await api(`/admin/users/${u.role}/${u.id}/toggle`, { method: "PATCH" });
+      toast.success(`${u.full_name} ${u.is_active ? "deactivated" : "reactivated"}`);
+      refresh();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  if (users === null) return <AppShell><Skeleton className="h-64" /></AppShell>;
+
+  const filtered = users
     .filter((u) => filter === "all" || u.role === filter)
-    .filter((u) => u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()));
+    .filter((u) => u.full_name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <AppShell>
@@ -31,7 +50,7 @@ function UsersPage() {
           <h1 className="text-2xl lg:text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage borrowers, officers, and admins.</p>
         </div>
-        <Button className="bg-primary hover:opacity-90" onClick={() => toast.success("Invite sent")}>
+        <Button className="bg-primary hover:opacity-90" onClick={() => toast.info("Use registration page to add borrowers")}>
           <UserPlus className="h-4 w-4 mr-1.5" /> Add user
         </Button>
       </div>
@@ -45,9 +64,9 @@ function UsersPage() {
           <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
-            <SelectItem value="Borrower">Borrowers</SelectItem>
-            <SelectItem value="Loan Officer">Loan Officers</SelectItem>
-            <SelectItem value="Admin">Admins</SelectItem>
+            <SelectItem value="borrower">Borrowers</SelectItem>
+            <SelectItem value="officer">Loan Officers</SelectItem>
+            <SelectItem value="admin">Admins</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -68,17 +87,15 @@ function UsersPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableRow key={`${u.role}-${u.id}`}>
+                    <TableCell className="font-medium">{u.full_name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email}</TableCell>
-                    <TableCell>{u.role}</TableCell>
-                    <TableCell>{formatDate(u.joined)}</TableCell>
-                    <TableCell><StatusBadge status={u.status} /></TableCell>
+                    <TableCell>{roleLabel[u.role]}</TableCell>
+                    <TableCell>{formatDate(u.created_at)}</TableCell>
+                    <TableCell><StatusBadge status={u.is_active ? "active" : "rejected"} /></TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => toast.info(`Editing ${u.name}`)}>Edit</Button>
-                      <Button variant="ghost" size="sm" className="text-destructive"
-                              onClick={() => toast.warning(`${u.name} ${u.status === "Active" ? "deactivated" : "reactivated"}`)}>
-                        {u.status === "Active" ? "Deactivate" : "Activate"}
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => toggle(u)}>
+                        {u.is_active ? "Deactivate" : "Activate"}
                       </Button>
                     </TableCell>
                   </TableRow>

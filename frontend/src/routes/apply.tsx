@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LOAN_PRODUCTS } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import type { LoanProduct } from "@/lib/mockData";
 import { naira } from "@/lib/format";
 import { toast } from "sonner";
 import { Upload, FileCheck2 } from "lucide-react";
@@ -19,23 +20,55 @@ export const Route = createFileRoute("/apply")({
 
 function ApplyPage() {
   const navigate = useNavigate();
-  const [productId, setProductId] = useState(LOAN_PRODUCTS[0].id);
+  const [products, setProducts] = useState<LoanProduct[]>([]);
+  const [productId, setProductId] = useState<number | null>(null);
   const [amount, setAmount] = useState(200000);
   const [tenure, setTenure] = useState(6);
   const [purpose, setPurpose] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [guarantor, setGuarantor] = useState({ name: "", phone: "", relation: "" });
-  const product = LOAN_PRODUCTS.find((p) => p.id === productId)!;
+
+  useEffect(() => {
+    api<{ products: LoanProduct[] }>("/products").then((r) => {
+      setProducts(r.products);
+      if (r.products[0]) {
+        setProductId(r.products[0].id);
+        setAmount(Number(r.products[0].min_amount));
+        setTenure(r.products[0].min_tenure_months);
+      }
+    }).catch((e) => toast.error(e.message));
+  }, []);
+
+  const product = products.find((p) => p.id === productId);
 
   const monthly = (() => {
-    const r = product.rate / 100 / 12;
+    if (!product) return 0;
+    const r = Number(product.interest_rate) / 100 / 12;
+    if (r === 0) return Math.round(amount / tenure);
     return Math.round((amount * r) / (1 - Math.pow(1 + r, -tenure)));
   })();
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Loan application submitted! Status: Pending Review.");
-    navigate({ to: "/loans" });
+    if (!productId) return;
+    setSubmitting(true);
+    try {
+      await api("/loans/apply", { method: "POST", body: { productId, amount, tenureMonths: tenure, purpose } });
+      toast.success("Loan application submitted! Status: Pending Review.");
+      navigate({ to: "/loans" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (!product) {
+    return <AppShell><Card><CardContent className="py-16 text-center text-muted-foreground">Loading products…</CardContent></Card></AppShell>;
+  }
+
+  const tenures: number[] = [];
+  for (let t = product.min_tenure_months; t <= product.max_tenure_months; t++) tenures.push(t);
 
   return (
     <AppShell>
@@ -51,25 +84,30 @@ function ApplyPage() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Loan product</Label>
-                <Select value={productId} onValueChange={setProductId}>
+                <Select value={String(productId)} onValueChange={(v) => {
+                  const p = products.find((x) => x.id === Number(v))!;
+                  setProductId(p.id);
+                  setAmount(Number(p.min_amount));
+                  setTenure(p.min_tenure_months);
+                }}>
                   <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {LOAN_PRODUCTS.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} — {p.rate}% p.a.
+                    {products.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name} — {p.interest_rate}% p.a.
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  Range: {naira(product.min)} – {naira(product.max)}
+                  Range: {naira(Number(product.min_amount))} – {naira(Number(product.max_amount))}
                 </p>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Amount (₦)</Label>
-                  <Input type="number" min={product.min} max={product.max} step={1000} required
+                  <Input type="number" min={Number(product.min_amount)} max={Number(product.max_amount)} step={1000} required
                          value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="mt-1.5" />
                 </div>
                 <div>
@@ -77,7 +115,7 @@ function ApplyPage() {
                   <Select value={String(tenure)} onValueChange={(v) => setTenure(Number(v))}>
                     <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {product.tenures.map((t) => <SelectItem key={t} value={String(t)}>{t} months</SelectItem>)}
+                      {tenures.map((t) => <SelectItem key={t} value={String(t)}>{t} months</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -139,12 +177,12 @@ function ApplyPage() {
               <div className="space-y-2 text-sm">
                 <Row label="Product" value={product.name} />
                 <Row label="Loan amount" value={naira(amount)} />
-                <Row label="Interest rate" value={`${product.rate}% p.a.`} />
+                <Row label="Interest rate" value={`${product.interest_rate}% p.a.`} />
                 <Row label="Tenure" value={`${tenure} months`} />
                 <Row label="Total repayable" value={naira(monthly * tenure)} bold />
               </div>
-              <Button type="submit" className="w-full bg-primary hover:opacity-90" size="lg">
-                <FileCheck2 className="h-4 w-4 mr-2" /> Submit application
+              <Button type="submit" disabled={submitting} className="w-full bg-primary hover:opacity-90" size="lg">
+                <FileCheck2 className="h-4 w-4 mr-2" /> {submitting ? "Submitting..." : "Submit application"}
               </Button>
             </CardContent>
           </Card>
