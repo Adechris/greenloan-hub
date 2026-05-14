@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { mockLoans, type Loan } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import type { Loan } from "@/lib/mockData";
 import { naira, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Search, FileText, CheckCircle2, XCircle, Flag } from "lucide-react";
@@ -19,18 +20,30 @@ export const Route = createFileRoute("/officer/applications")({
 });
 
 function ApplicationsPage() {
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Loan | null>(null);
   const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const apps = mockLoans
-    .filter((l) => l.officer === "Tunde Bello")
-    .filter((l) => l.borrowerName.toLowerCase().includes(q.toLowerCase()) || l.id.toLowerCase().includes(q.toLowerCase()));
+  const refresh = () => api<{ loans: Loan[] }>("/officer/queue").then((r) => setLoans(r.loans));
+  useEffect(() => { refresh(); }, []);
 
-  const action = (label: string) => {
-    toast.success(`${label} — ${active?.id}. Note saved.`);
-    setActive(null);
-    setComment("");
+  const apps = loans.filter(
+    (l) => (l.borrower_name ?? "").toLowerCase().includes(q.toLowerCase()) || String(l.id).includes(q)
+  );
+
+  const decide = async (action: "approve" | "reject" | "flag") => {
+    if (!active) return;
+    setBusy(true);
+    try {
+      await api(`/officer/loans/${active.id}/decide`, { method: "POST", body: { action, reason: comment } });
+      toast.success(`Application ${action}d`);
+      setActive(null); setComment("");
+      await refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally { setBusy(false); }
   };
 
   return (
@@ -64,11 +77,11 @@ function ApplicationsPage() {
               <TableBody>
                 {apps.map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell className="font-mono text-xs">{l.id}</TableCell>
-                    <TableCell className="font-medium">{l.borrowerName}</TableCell>
-                    <TableCell>{l.product}</TableCell>
-                    <TableCell className="text-right font-semibold">{naira(l.amount)}</TableCell>
-                    <TableCell>{formatDate(l.appliedAt)}</TableCell>
+                    <TableCell className="font-mono text-xs">L-{l.id}</TableCell>
+                    <TableCell className="font-medium">{l.borrower_name}</TableCell>
+                    <TableCell>{l.product_name}</TableCell>
+                    <TableCell className="text-right font-semibold">{naira(Number(l.amount))}</TableCell>
+                    <TableCell>{formatDate(l.applied_at)}</TableCell>
                     <TableCell><StatusBadge status={l.status} /></TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" onClick={() => setActive(l)}>Review</Button>
@@ -89,37 +102,36 @@ function ApplicationsPage() {
           {active && (
             <>
               <DialogHeader>
-                <DialogTitle>Review application — {active.id}</DialogTitle>
+                <DialogTitle>Review application — L-{active.id}</DialogTitle>
               </DialogHeader>
               <div className="grid sm:grid-cols-2 gap-4 mt-2">
-                <Field label="Borrower" value={active.borrowerName} />
-                <Field label="Product" value={active.product} />
-                <Field label="Amount" value={naira(active.amount)} />
-                <Field label="Tenure" value={`${active.tenureMonths} months`} />
-                <Field label="Interest" value={`${active.interestRate}% p.a.`} />
+                <Field label="Borrower" value={active.borrower_name ?? "—"} />
+                <Field label="Product" value={active.product_name ?? "—"} />
+                <Field label="Amount" value={naira(Number(active.amount))} />
+                <Field label="Tenure" value={`${active.tenure_months} months`} />
+                <Field label="Interest" value={`${active.interest_rate}% p.a.`} />
                 <Field label="Status" value={<StatusBadge status={active.status} />} />
-                <div className="sm:col-span-2"><Field label="Purpose" value={active.purpose} /></div>
+                <div className="sm:col-span-2"><Field label="Purpose" value={active.purpose ?? "—"} /></div>
               </div>
 
               <Card className="mt-2">
-                <CardHeader className="pb-3"><CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4" /> Documents</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-lg border p-3"><p className="font-medium">Means of ID</p><p className="text-xs text-muted-foreground">id_card.pdf • 1.2 MB</p></div>
-                  <div className="rounded-lg border p-3"><p className="font-medium">Bank statement</p><p className="text-xs text-muted-foreground">statement.pdf • 0.8 MB</p></div>
+                <CardContent className="grid grid-cols-2 gap-2 text-sm pt-4">
+                  <div className="rounded-lg border p-3 flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /><div><p className="font-medium text-xs">Means of ID</p><p className="text-[11px] text-muted-foreground">id_card.pdf</p></div></div>
+                  <div className="rounded-lg border p-3 flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /><div><p className="font-medium text-xs">Bank statement</p><p className="text-[11px] text-muted-foreground">statement.pdf</p></div></div>
                 </CardContent>
               </Card>
 
               <div>
                 <label className="text-sm font-medium">Comment / reason</label>
-                <Textarea className="mt-1.5" rows={3} placeholder="Add a note for the borrower or admin..." value={comment} onChange={(e) => setComment(e.target.value)} />
+                <Textarea className="mt-1.5" rows={3} placeholder="Add a note for the borrower..." value={comment} onChange={(e) => setComment(e.target.value)} />
               </div>
 
               <div className="flex flex-wrap gap-2 justify-end pt-2">
-                <Button variant="outline" onClick={() => action("Flagged for review")}><Flag className="h-4 w-4 mr-1.5" /> Flag</Button>
-                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => action("Rejected")}>
+                <Button variant="outline" disabled={busy} onClick={() => decide("flag")}><Flag className="h-4 w-4 mr-1.5" /> Flag</Button>
+                <Button variant="outline" disabled={busy} className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => decide("reject")}>
                   <XCircle className="h-4 w-4 mr-1.5" /> Reject
                 </Button>
-                <Button className="bg-primary hover:opacity-90" onClick={() => action("Approved")}>
+                <Button disabled={busy} className="bg-primary hover:opacity-90" onClick={() => decide("approve")}>
                   <CheckCircle2 className="h-4 w-4 mr-1.5" /> Approve
                 </Button>
               </div>

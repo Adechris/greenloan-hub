@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
-import { mockLoans, monthlyDisbursement, portfolioBreakdown } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import type { Loan } from "@/lib/mockData";
 import { naira, formatDate } from "@/lib/format";
 import { Wallet, TrendingUp, Users, AlertTriangle } from "lucide-react";
 
@@ -17,13 +20,25 @@ export const Route = createFileRoute("/admin/")({
   head: () => ({ meta: [{ title: "Admin Dashboard — NaijaLoan" }] }),
 });
 
-const COLORS = ["oklch(0.45 0.13 150)", "oklch(0.76 0.15 85)", "oklch(0.6 0.13 230)"];
+const COLORS = ["oklch(0.45 0.13 150)", "oklch(0.76 0.15 85)", "oklch(0.6 0.13 230)", "oklch(0.55 0.18 25)"];
+
+interface Stats {
+  totalDisbursed: number; totalRepaid: number; totalBorrowers: number; totalOfficers: number;
+  totalLoans: number; activeLoans: number; defaultRate: number;
+  portfolioMix: { name: string; value: number }[];
+  monthlyTrend: { month: string; disbursed: number; repaid: number }[];
+}
 
 function AdminDashboard() {
-  const totalDisbursed = mockLoans.filter((l) => ["Disbursed", "Active", "Repaid"].includes(l.status)).reduce((s, l) => s + l.amount, 0);
-  const totalRepaid = totalDisbursed - mockLoans.reduce((s, l) => s + l.outstanding, 0);
-  const activeBorrowers = new Set(mockLoans.filter((l) => l.status === "Active").map((l) => l.borrowerId)).size;
-  const defaultRate = 4.2;
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loans, setLoans] = useState<Loan[]>([]);
+
+  useEffect(() => {
+    api<Stats>("/admin/stats").then(setStats).catch(() => {});
+    api<{ loans: Loan[] }>("/admin/loans").then((r) => setLoans(r.loans)).catch(() => {});
+  }, []);
+
+  if (!stats) return <AppShell><Skeleton className="h-64" /></AppShell>;
 
   return (
     <AppShell>
@@ -33,10 +48,10 @@ function AdminDashboard() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Disbursed" value={naira(totalDisbursed)} icon={<Wallet className="h-5 w-5" />} accent="primary" trend="+12% this month" />
-        <StatCard label="Repaid" value={naira(totalRepaid)} icon={<TrendingUp className="h-5 w-5" />} accent="gold" trend="+8% this month" />
-        <StatCard label="Active borrowers" value={activeBorrowers} icon={<Users className="h-5 w-5" />} accent="info" />
-        <StatCard label="Default rate" value={`${defaultRate}%`} icon={<AlertTriangle className="h-5 w-5" />} accent="destructive" trend="−0.3% vs last month" />
+        <StatCard label="Disbursed" value={naira(stats.totalDisbursed)} icon={<Wallet className="h-5 w-5" />} accent="primary" trend={`${stats.totalLoans} loans`} />
+        <StatCard label="Repaid" value={naira(stats.totalRepaid)} icon={<TrendingUp className="h-5 w-5" />} accent="gold" />
+        <StatCard label="Borrowers" value={stats.totalBorrowers} icon={<Users className="h-5 w-5" />} accent="info" trend={`${stats.totalOfficers} officers`} />
+        <StatCard label="Default rate" value={`${stats.defaultRate}%`} icon={<AlertTriangle className="h-5 w-5" />} accent="destructive" />
       </div>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-4">
@@ -44,7 +59,7 @@ function AdminDashboard() {
           <CardHeader><CardTitle>Disbursements vs Repayments (₦M)</CardTitle></CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyDisbursement}>
+              <BarChart data={stats.monthlyTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.01 150)" />
                 <XAxis dataKey="month" stroke="oklch(0.5 0.02 155)" fontSize={12} />
                 <YAxis stroke="oklch(0.5 0.02 155)" fontSize={12} />
@@ -62,8 +77,8 @@ function AdminDashboard() {
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={portfolioBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={3}>
-                  {portfolioBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                <Pie data={stats.portfolioMix} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={3}>
+                  {stats.portfolioMix.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
                 <Legend />
@@ -90,14 +105,14 @@ function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockLoans.slice(0, 7).map((l) => (
+                {loans.slice(0, 8).map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell className="font-mono text-xs">{l.id}</TableCell>
-                    <TableCell className="font-medium">{l.borrowerName}</TableCell>
-                    <TableCell>{l.product}</TableCell>
-                    <TableCell className="text-right font-semibold">{naira(l.amount)}</TableCell>
-                    <TableCell className="text-sm">{l.officer ?? "—"}</TableCell>
-                    <TableCell>{formatDate(l.appliedAt)}</TableCell>
+                    <TableCell className="font-mono text-xs">L-{l.id}</TableCell>
+                    <TableCell className="font-medium">{l.borrower_name}</TableCell>
+                    <TableCell>{l.product_name}</TableCell>
+                    <TableCell className="text-right font-semibold">{naira(Number(l.amount))}</TableCell>
+                    <TableCell className="text-sm">{l.officer_name ?? "—"}</TableCell>
+                    <TableCell>{formatDate(l.applied_at)}</TableCell>
                     <TableCell><StatusBadge status={l.status} /></TableCell>
                   </TableRow>
                 ))}

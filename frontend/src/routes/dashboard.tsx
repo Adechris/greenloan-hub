@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { mockLoans, mockNotifications } from "@/lib/mockData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
+import type { Loan, AppNotification } from "@/lib/mockData";
 import { naira, formatDate } from "@/lib/format";
 import { Wallet, TrendingDown, CalendarDays, Plus, ArrowRight, Bell } from "lucide-react";
 
@@ -15,11 +18,19 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function BorrowerDashboard() {
-  const myLoans = mockLoans.filter((l) => l.borrowerId === "u-borrower");
-  const active = myLoans.filter((l) => ["Active", "Disbursed", "Approved"].includes(l.status));
-  const totalOutstanding = active.reduce((s, l) => s + l.outstanding, 0);
-  const totalBorrowed = myLoans.reduce((s, l) => s + l.amount, 0);
-  const next = active.find((l) => l.nextDueDate);
+  const [loans, setLoans] = useState<Loan[] | null>(null);
+  const [notes, setNotes] = useState<AppNotification[]>([]);
+
+  useEffect(() => {
+    api<{ loans: Loan[] }>("/loans/mine").then((r) => setLoans(r.loans)).catch(() => setLoans([]));
+    api<{ notifications: AppNotification[] }>("/notifications").then((r) => setNotes(r.notifications)).catch(() => {});
+  }, []);
+
+  const myLoans = loans ?? [];
+  const active = myLoans.filter((l) => ["active", "disbursed", "approved"].includes(l.status));
+  const totalOutstanding = active.reduce((s, l) => s + Number(l.outstanding ?? 0), 0);
+  const totalBorrowed = myLoans.reduce((s, l) => s + Number(l.amount), 0);
+  const next = active.find((l) => l.next_due_date);
 
   return (
     <AppShell>
@@ -37,8 +48,8 @@ function BorrowerDashboard() {
         <StatCard label="Active loans" value={active.length} icon={<Wallet className="h-5 w-5" />} accent="primary" />
         <StatCard label="Outstanding" value={naira(totalOutstanding)} icon={<TrendingDown className="h-5 w-5" />} accent="gold" />
         <StatCard label="Total borrowed" value={naira(totalBorrowed)} icon={<Wallet className="h-5 w-5" />} accent="info" />
-        <StatCard label="Next repayment" value={next ? formatDate(next.nextDueDate!) : "—"}
-                  icon={<CalendarDays className="h-5 w-5" />} trend={next ? `${naira(45000)} due` : "No upcoming dues"} />
+        <StatCard label="Next repayment" value={next?.next_due_date ? formatDate(next.next_due_date) : "—"}
+                  icon={<CalendarDays className="h-5 w-5" />} trend={next ? "Upcoming" : "No upcoming dues"} />
       </div>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-4">
@@ -50,28 +61,30 @@ function BorrowerDashboard() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-3">
-            {myLoans.length === 0 && (
+            {loans === null && <Skeleton className="h-24" />}
+            {loans !== null && myLoans.length === 0 && (
               <div className="py-12 text-center">
                 <p className="text-muted-foreground">No loans yet. Apply to get started.</p>
               </div>
             )}
             {myLoans.map((loan) => {
-              const repaid = loan.amount - loan.outstanding;
-              const pct = loan.amount > 0 ? (repaid / loan.amount) * 100 : 0;
+              const out = Number(loan.outstanding ?? 0);
+              const repaid = Number(loan.amount) - out;
+              const pct = Number(loan.amount) > 0 ? (repaid / Number(loan.amount)) * 100 : 0;
               return (
                 <Link key={loan.id} to="/loans" className="block rounded-xl border p-4 hover:border-primary/40 transition-colors">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div>
-                      <p className="font-semibold">{loan.product}</p>
-                      <p className="text-xs text-muted-foreground">{loan.id} • {loan.tenureMonths} months • {loan.interestRate}% p.a.</p>
+                      <p className="font-semibold">{loan.product_name}</p>
+                      <p className="text-xs text-muted-foreground">L-{loan.id} • {loan.tenure_months} months • {loan.interest_rate}% p.a.</p>
                     </div>
                     <StatusBadge status={loan.status} />
                   </div>
                   <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold text-lg">{naira(loan.amount)}</span>
-                    <span className="text-muted-foreground text-xs">{naira(repaid)} repaid</span>
+                    <span className="font-semibold text-lg">{naira(Number(loan.amount))}</span>
+                    <span className="text-muted-foreground text-xs">{naira(Math.max(0, repaid))} repaid</span>
                   </div>
-                  <Progress value={pct} className="mt-2 h-1.5" />
+                  <Progress value={Math.max(0, Math.min(100, pct))} className="mt-2 h-1.5" />
                 </Link>
               );
             })}
@@ -84,15 +97,16 @@ function BorrowerDashboard() {
             <Link to="/notifications" className="text-sm text-primary font-medium hover:underline">All</Link>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockNotifications.slice(0, 4).map((n) => (
+            {notes.length === 0 && <p className="text-sm text-muted-foreground">No notifications yet.</p>}
+            {notes.slice(0, 4).map((n) => (
               <div key={n.id} className="flex gap-3 pb-3 border-b last:border-0 last:pb-0">
                 <div className={`h-2 w-2 rounded-full mt-2 shrink-0 ${
-                  n.type === "warning" ? "bg-warning" : n.type === "success" ? "bg-success" : "bg-info"
+                  n.type === "warning" ? "bg-warning" : n.type === "success" ? "bg-success" : n.type === "error" ? "bg-destructive" : "bg-info"
                 }`} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{n.title}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{n.body}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{formatDate(n.date)}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{formatDate(n.created_at)}</p>
                 </div>
               </div>
             ))}
